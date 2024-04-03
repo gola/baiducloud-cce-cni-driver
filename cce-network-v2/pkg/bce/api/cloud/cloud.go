@@ -38,8 +38,6 @@ const (
 	BCCEndpointEnv = "BCC_ENDPOINT"
 	BBCEndpointEnv = "BBC_ENDPOINT"
 	EIPEndpointEnv = "EIP_ENDPOINT"
-
-	connectionTimeoutSInSecond = 20
 )
 
 func newBCEClientConfig(ctx context.Context,
@@ -47,6 +45,7 @@ func newBCEClientConfig(ctx context.Context,
 	endpointEnv string,
 	preDefinedEndpoints map[string]string,
 	auth Auth,
+	timeout time.Duration,
 ) *bce.BceClientConfiguration {
 	endpoint, exist := os.LookupEnv(endpointEnv)
 	if !exist || endpoint == "" {
@@ -59,8 +58,8 @@ func newBCEClientConfig(ctx context.Context,
 		UserAgent:                 bce.DEFAULT_USER_AGENT,
 		Credentials:               auth.GetCredentials(ctx),
 		SignOption:                auth.GetSignOptions(ctx),
-		Retry:                     bce.DEFAULT_RETRY_POLICY,
-		ConnectionTimeoutInMillis: bce.DEFAULT_CONNECTION_TIMEOUT_IN_MILLIS,
+		Retry:                     bce.NewNoRetryPolicy(),
+		ConnectionTimeoutInMillis: int(timeout.Milliseconds()),
 	}
 }
 
@@ -71,12 +70,11 @@ func New(
 	secretAccessKey string,
 	kubeClient kubernetes.Interface,
 	debug bool,
+	timeout time.Duration,
 ) (Interface, error) {
 	ctx := context.TODO()
-
-	if debug {
-		sdklog.SetLogHandler(sdklog.STDOUT)
-	}
+	// set logrus as bce sdk default logger
+	sdklog.SetLogger(&bceLogger{})
 
 	var auth Auth
 	var err error
@@ -90,35 +88,30 @@ func New(
 		return nil, err
 	}
 
-	bccClientConfig := newBCEClientConfig(ctx, region, BCCEndpointEnv, BCCEndpoints, auth)
-	bbcClientConfig := newBCEClientConfig(ctx, region, BBCEndpointEnv, BBCEndpoints, auth)
-	eipClientConfig := newBCEClientConfig(ctx, region, EIPEndpointEnv, EIPEndpoints, auth)
+	bccClientConfig := newBCEClientConfig(ctx, region, BCCEndpointEnv, BCCEndpoints, auth, timeout)
+	bbcClientConfig := newBCEClientConfig(ctx, region, BBCEndpointEnv, BBCEndpoints, auth, timeout)
+	eipClientConfig := newBCEClientConfig(ctx, region, EIPEndpointEnv, EIPEndpoints, auth, timeout)
 
 	vpcClient := &vpc.Client{
 		BceClient: bce.NewBceClient(bccClientConfig, auth.GetSigner(ctx)),
 	}
-	vpcClient.Config.ConnectionTimeoutInMillis = connectionTimeoutSInSecond * 1000
 
 	bccClient := &bcc.Client{
 		BceClient: bce.NewBceClient(bccClientConfig, auth.GetSigner(ctx)),
 	}
-	bccClient.Config.ConnectionTimeoutInMillis = connectionTimeoutSInSecond * 1000
 
 	eipClient := &eip.Client{
 		BceClient: bce.NewBceClient(eipClientConfig, auth.GetSigner(ctx)),
 	}
-	eipClient.Config.ConnectionTimeoutInMillis = connectionTimeoutSInSecond * 1000
 
 	// todo iaas sdk 暂未支持过滤 eri 和 eni，暂时自行封装一层支持，待后续 sdk 支持过滤 eri 和 eni 后，去除这部分封装
 	eniClient := &eniExt.Client{
 		Client: &eni.Client{BceClient: bce.NewBceClient(bccClientConfig, auth.GetSigner(ctx))},
 	}
-	eniClient.Config.ConnectionTimeoutInMillis = connectionTimeoutSInSecond * 1000
 
 	bbcClient := &bbc.Client{
 		BceClient: bce.NewBceClient(bbcClientConfig, auth.GetSigner(ctx)),
 	}
-	bbcClient.Config.ConnectionTimeoutInMillis = connectionTimeoutSInSecond * 1000
 
 	hpcClient := &hpc.Client{
 		BceClient: bce.NewBceClient(bccClientConfig, auth.GetSigner(ctx)),

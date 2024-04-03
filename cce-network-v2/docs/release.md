@@ -1,11 +1,26 @@
 # 2.0
 v2 版本新架构，支持VPC-ENI 辅助IP和vpc路由。版本发布历史如下：
 
-### 2.10 (2024/01/30)
-### 2.10.0 （2024/01/30）
+### 2.12
+新核心特性功能如下：
+1. 支持 ipvlan l2 单机驱动，提升 Pod 容器网络性能。
+### 2.12.0
+1. [Feature] 支持 ipvlan l2 单机驱动，提升 Pod 容器网络性能。
+
+
+### 2.10 (2024/03/05)
+### 2.10.0 （2024/03/05）
 1. [Feature] VPC-ENI 支持自动获取节点 eni 配额信息，去掉了自定义 ENI 配额的参数。
 2. [Feature] VPC-ENI 支持 ebc 主网卡辅助 IP 模式 
 3. [Feature] VPC-ENI bbc 升级为主网卡辅助 IP 模式
+4. [Opimize] 增加 CNI 插件日志持久化
+5. [Feature] 重构 CNI 配置文件管理逻辑，支持保留自定义 CNI 插件配置
+6. [Feature] 增加对portmap 插件的支持，默认开启
+7. [Feature] 支持通过在Node上添加 Annotation `network.cce.baidubce.com/node-eni-max-ips-num` 指定节点上 ENI 的最大辅助 IP 数量。
+8. [BUG] 修复arm64架构下，cni 插件无法执行的问题
+9. [Opimize] 增加 BCE SDK 日志持久化
+10. [Opimize] 优化去掉 bce sdk 的退避重试策略，避免频繁重试
+11. [Opimize] 支持使用`default-api-timeout` 自定义参数指定 bce openAPI 超时时间
 
 ### 2.9 (2023/11/10)
 新特性功能：
@@ -14,7 +29,18 @@ v2 版本新架构，支持VPC-ENI 辅助IP和vpc路由。版本发布历史如�
 3. 新特性: 支持ubuntu 22.04 操作系统，在容器网络环境下，定义 systemd-networkd 的 MacAddressPolicy 为 none。
 4. 新特性：支持 pod 级 Qos
 
-### 2.9.1 
+### 2.9.4 [20240305]
+1. [Feature] 支持 BBC 实例通过 Node 上增加 `network.cce.baidubce.com/node-eni-subnet` Anotation 配置指定节点上 ENI 的子网。 
+
+### 2.9.3 [20240228]
+1. [Feature] cce-network-agent 自动同步节Node的Annoation信息到CRD中。
+2. [Feature] 支持 EBC/BCC 实例通过 Node 上增加 `network.cce.baidubce.com/node-eni-subnet` Anotation 配置指定节点上 ENI 的子网。
+3. [Feature] 新增`enable-node-annotation-sync`参数，默认关闭。
+4. [Bug] 修正预申请 IP 时，可新建 ENI 的数量计算错误。
+
+### 2.9.2 [20240223]
+1. [BUG] 修复arm64架构下，cni 插件无法执行的问题
+### 2.9.1 [20240115]
 1. [optimize] 优化NetResourceManager在接收事件时处理的锁，消除事件处理过程中 6 分钟延迟
 2. [optimize] 优化ENI状态机同步错误时，增加 3 次重试机会，消除因 ENI 状态延迟导致的 10 分钟就绪延迟
 3. [bug]修复 cce-network-agent 识别操作系统信息错误的问题

@@ -25,11 +25,6 @@ type simpleIPQuotaManager struct {
 	kubeClient kubernetes.Interface
 	node       *corev1.Node
 	instanceID string
-
-	// MaxENINum is the maximum number of ENI devices that can be attached to the node
-	MaxENINum int
-	// MaxIPPerENI is the maximum number of IP addresses that can be attached to the ENI device
-	MaxIPPerENI int
 }
 
 // patchENICapacityInfoToNode patches eni capacity info to node if not exists.
@@ -138,33 +133,6 @@ func (ciq *customerIPQuota) SetMaxIP(max int) {
 // SyncCapacityToK8s implements IPResourceManager.
 func (ciq *customerIPQuota) SyncCapacityToK8s(ctx context.Context) error {
 	return ciq.patchENICapacityInfoToNode(ctx, ciq.maxENINum, ciq.maxIPPerENI)
-}
-
-type ebcENIQuota struct {
-	*customerIPQuota
-
-	vpcENIQuota   int
-	isBCCInstance bool
-}
-
-var _ ENIQuotaManager = &ebcENIQuota{}
-
-func newEBCENIQuota(
-	log *logrus.Entry,
-	kubeClient kubernetes.Interface, node *corev1.Node, instanceID string,
-	bceclient cloud.Interface,
-	vpcENIQuota int,
-) ENIQuotaManager {
-	return &ebcENIQuota{
-		customerIPQuota: newCustomerIPQuota(log, kubeClient, node, instanceID, bceclient).(*customerIPQuota),
-	}
-}
-
-func (ciq *ebcENIQuota) GetMaxENI() int {
-	if ciq.vpcENIQuota > 0 {
-		return ciq.vpcENIQuota
-	}
-	return 1
 }
 
 // calculateMaxIPPerENI returns the max num of IPs that can be attached to single ENI
