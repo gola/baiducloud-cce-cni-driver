@@ -86,10 +86,11 @@ func (eni *eniResource) ForeachAddress(instanceID string, fn ipamTypes.AddressIt
 
 // ForeachInstance will iterate over each instance inside `instances`, and call
 // `fn`. This function is read-locked for the entire execution.
-func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.InterfaceIterator) error {
+func (m *InstancesManager) ForeachInstance(instanceID, nodeName string, fn ipamTypes.InterfaceIterator) error {
 	// Select only the ENI of the local node
 	selector, _ := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(labels.Set{
 		k8s.LabelInstanceID: instanceID,
+		k8s.LabelNodeName:   nodeName,
 	}))
 	enis, err := m.enilister.List(selector)
 	if err != nil {
@@ -113,7 +114,7 @@ func (n *bceNode) waitForENISynced(ctx context.Context) {
 	defer cancel()
 	wait.PollImmediateUntilWithContext(ctx, 200*time.Millisecond, func(ctx context.Context) (done bool, err error) {
 		haveSynced := true
-		n.manager.ForeachInstance(n.instanceID,
+		n.manager.ForeachInstance(n.instanceID, n.k8sObj.Name,
 			func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
 				e, ok := iface.Resource.(*eniResource)
 				if !ok {
@@ -147,11 +148,11 @@ func (n *bccNode) createInterface(ctx context.Context, allocation *ipam.Allocati
 	}
 
 	var (
-		eniQuota          = n.bceNode.getENIQuota()
+		limiter           = n.bceNode.calculateLimiter()
 		availableENICount = 0
 		inuseENICount     = 0
 	)
-	n.manager.ForeachInstance(n.instanceID,
+	n.manager.ForeachInstance(n.instanceID, n.k8sObj.Name,
 		func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
 			e, ok := iface.Resource.(*eniResource)
 			if !ok {
@@ -165,7 +166,7 @@ func (n *bccNode) createInterface(ctx context.Context, allocation *ipam.Allocati
 				}
 			} else if n.k8sObj.Spec.ENI.UseMode == string(ccev2.ENIUseModeSecondaryIP) {
 				// if the length of private ip set is greater than the MaxIPPerENI, then the ENI is in use
-				if len(e.Spec.ENI.PrivateIPSet) >= eniQuota.GetMaxIP() {
+				if len(e.Spec.ENI.PrivateIPSet) >= limiter.MaxIPPerENI {
 					inuseENICount++
 				}
 			}
@@ -173,7 +174,7 @@ func (n *bccNode) createInterface(ctx context.Context, allocation *ipam.Allocati
 			return nil
 		})
 
-	if availableENICount >= eniQuota.GetMaxENI() {
+	if availableENICount >= limiter.MaxENINum {
 		msg = errUnableToDetermineLimits
 		err = fmt.Errorf(msg)
 		return
@@ -258,7 +259,7 @@ func (n *bccNode) createENIOnCluster(ctx context.Context, scopedLog *logrus.Entr
 			},
 			RouteTableOffset:          resource.Spec.ENI.RouteTableOffset,
 			InstallSourceBasedRouting: resource.Spec.ENI.InstallSourceBasedRouting,
-			Type:                      ccev2.ENIType(resource.Spec.ENI.InstanceType),
+			Type:                      ccev2.ENIForBCC,
 		},
 	}
 

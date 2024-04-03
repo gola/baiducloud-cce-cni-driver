@@ -243,18 +243,6 @@ func initializeFlags() {
 	flags.String(option.IPAM, ipamOption.IPAMClusterPool, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
-	flags.Int(option.IPPoolMinAllocateIPs, 2,
-		"MinAllocate is the minimum number of IPs that must be allocated when the node is first bootstrapped.")
-	option.BindEnv(option.IPPoolMinAllocateIPs)
-
-	flags.Int(option.IPPoolPreAllocate, 2,
-		"PreAllocate defines the number of IP addresses that must be available for allocation in the IPAMspec. ")
-	option.BindEnv(option.IPPoolPreAllocate)
-
-	flags.Int(option.IPPoolMaxAboveWatermark, 2,
-		"MaxAboveWatermark is the maximum number of addresses to allocate beyond the addresses needed to reach the PreAllocate watermark.")
-	option.BindEnv(option.IPPoolMaxAboveWatermark)
-
 	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	option.BindEnv(option.IPv4Range)
 
@@ -490,6 +478,9 @@ func initializeFlags() {
 
 	flags.StringSlice(option.ENIEnterpriseSecurityGroupIds, []string{}, "enterprise security group ids")
 	option.BindEnv(option.ENIEnterpriseSecurityGroupIds)
+
+	flags.Int(option.MaxRDMAIPsPerENI, 0, "max RDMA IPs can be allocated to a RDMA ENI , 0 means no limit")
+	option.BindEnv(option.MaxRDMAIPsPerENI)
 
 	flags.Bool(option.EnableBandwidthManager, true, "enable bandwidth manager")
 	option.BindEnv(option.EnableBandwidthManager)
@@ -760,6 +751,8 @@ func (d *Daemon) instantiateAPI() *restapi.CceAPIAPI {
 	restAPI.IpamPostIpamHandler = NewPostIPAMHandler(d)
 	restAPI.IpamPostIpamIPHandler = NewPostIPAMIPHandler(d)
 	restAPI.IpamDeleteIpamIPHandler = NewDeleteIPAMIPHandler(d)
+	restAPI.RdmaipamPostRdmaipamHandler = NewPostRDMAIPAMHandler(d)
+	restAPI.RdmaipamDeleteRdmaipamRdmaipsHandler = NewDeleteRDMAIPAMIPHandler(d)
 
 	// /eni
 	restAPI.EniPostEniHandler = NewPostEniHandler(d)

@@ -235,6 +235,9 @@ const (
 	// EnableIPv6Name is the name of the option to enable IPv6 support
 	EnableIPv6Name = "enable-ipv6"
 
+	// EnableRDMA is the name of the option to enable RDMA support
+	EnableRDMA = "enable-rdma"
+
 	// EnableIPv6NDPName is the name of the option to enable IPv6 NDP support
 	EnableIPv6NDPName = "enable-ipv6-ndp"
 
@@ -371,9 +374,9 @@ const (
 	ENISecurityGroupIDs           = "eni-security-group-ids"
 	ENIEnterpriseSecurityGroupIds = "eni-enterprise-security-group-ids"
 	ENIInstallSourceBasedRouting  = "eni-install-source-based-routing"
-	IPPoolMinAllocateIPs          = "ippool-min-allocate-ips"
-	IPPoolPreAllocate             = "ippool-pre-allocate"
-	IPPoolMaxAboveWatermark       = "ippool-max-above-watermark"
+
+	// this flags only use for vpc-rdma mode
+	MaxRDMAIPsPerENI = "max-rdma-ips-per-eni"
 )
 
 // Available option for DaemonConfig.Tunnel
@@ -595,6 +598,9 @@ type DaemonConfig struct {
 	// EnableIPv6NDP is true when NDP is enabled for IPv6
 	EnableIPv6NDP bool
 
+	// EnableRDMA is true when RDMA is enabled
+	EnableRDMA bool
+
 	// IPv6MCastDevice is the name of device that joins IPv6's solicitation multicast group
 	IPv6MCastDevice string
 	// MonitorQueueSize is the size of the monitor event queue
@@ -716,10 +722,7 @@ type DaemonConfig struct {
 	IPv6PodSubnets []*net.IPNet
 
 	// IPAM is the IPAM method to use
-	IPAM                    string
-	IPPoolMinAllocateIPs    int
-	IPPoolPreAllocate       int
-	IPPoolMaxAboveWatermark int
+	IPAM string
 
 	// AutoCreateNetResourceSetResource enables automatic creation of a
 	// NetResourceSet resource for the local node
@@ -793,6 +796,7 @@ var (
 		EnableIPv4:                       defaults.EnableIPv4,
 		EnableIPv6:                       defaults.EnableIPv6,
 		EnableIPv6NDP:                    defaults.EnableIPv6NDP,
+		EnableRDMA:                       defaults.EnableRDMA,
 		LogOpt:                           make(map[string]string),
 		LoopbackIPv4:                     defaults.LoopbackIPv4,
 		ForceLocalPolicyEvalAtSource:     defaults.ForceLocalPolicyEvalAtSource,
@@ -1108,6 +1112,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv4 = viper.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
 	c.EnableIPv6NDP = viper.GetBool(EnableIPv6NDPName)
+	c.EnableRDMA = viper.GetBool(EnableRDMA)
 	c.IPv6MCastDevice = viper.GetString(IPv6MCastDevice)
 	c.DisableCCEEndpointCRD = viper.GetBool(DisableCCEEndpointCRDName)
 	c.DisableENICRD = viper.GetBool(DisableENICRDName)
@@ -1117,10 +1122,6 @@ func (c *DaemonConfig) Populate() {
 	//c.EnableEndpointHealthChecking = viper.GetBool(EnableEndpointHealthChecking)
 	//c.EnableTracing = viper.GetBool(EnableTracing)
 	c.IPAM = viper.GetString(IPAM)
-	c.IPPoolMaxAboveWatermark = viper.GetInt(IPPoolMaxAboveWatermark)
-	c.IPPoolMinAllocateIPs = viper.GetInt(IPPoolMinAllocateIPs)
-	c.IPPoolPreAllocate = viper.GetInt(IPPoolPreAllocate)
-
 	c.IPv4Range = viper.GetString(IPv4Range)
 	c.IPv6ClusterAllocCIDR = viper.GetString(IPv6ClusterAllocCIDRName)
 	c.IPv6Range = viper.GetString(IPv6Range)
@@ -1291,6 +1292,16 @@ func (c *DaemonConfig) Populate() {
 			SubnetIDs:                   viper.GetStringSlice(ENISubnets),
 			RouteTableOffset:            viper.GetInt(ENIRouteTableOffset),
 			InstallSourceBasedRouting:   viper.GetBool(ENIInstallSourceBasedRouting),
+		}
+	case ipamOption.IPAMRdma:
+		c.ENI = &bceapi.ENISpec{
+			UseMode:                   viper.GetString(ENIUseMode),
+			MaxAllocateENI:            0,
+			PreAllocateENI:            0,
+			MaxIPsPerENI:              viper.GetInt(MaxRDMAIPsPerENI),
+			VpcID:                     viper.GetString(BCECloudVPCID),
+			RouteTableOffset:          viper.GetInt(ENIRouteTableOffset),
+			InstallSourceBasedRouting: viper.GetBool(ENIInstallSourceBasedRouting),
 		}
 	}
 	c.ConfigFile = viper.GetString(ConfigFile)
