@@ -35,8 +35,6 @@ func newEBCNode(super *bccNode) *ebcNode {
 		bccNode: super,
 	}
 	node.instanceType = string(metadata.InstanceTypeExEBC)
-
-	node.refreshBCCInfo()
 	return node
 }
 
@@ -45,7 +43,10 @@ func (n *ebcNode) prepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.Allocati
 	if err != nil || n.haveCreatePrimaryENI {
 		return a, err
 	}
-	n.primaryENISubnetID = n.bccInfo.NicInfo.SubnetId
+	err = n.refreshPrimarySubnet()
+	if err != nil {
+		return a, err
+	}
 
 	// may should create a new primary ENI
 	if a.AvailableInterfaces == 0 && a.InterfaceID == "" && n.usePrimaryENIWithSecondaryMode {
@@ -64,6 +65,18 @@ func (n *ebcNode) prepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.Allocati
 		}
 	}
 	return a, err
+}
+
+func (n *ebcNode) refreshPrimarySubnet() error {
+	// get customer quota from cloud
+	err := n.refreshBCCInfo()
+	if err != nil {
+		return err
+	}
+	n.primaryENISubnetID = n.bccInfo.NicInfo.SubnetId
+	subnets := n.FilterAvailableSubnetIds([]string{n.primaryENISubnetID})
+	n.availableSubnets = subnets
+	return nil
 }
 
 // CreateInterface create a new ENI
@@ -87,10 +100,13 @@ func (n *ebcNode) createPrimaryENIOnCluster(ctx context.Context, scopedLog *logr
 		return err
 	}
 	bccInfo := n.bccInfo
+	err = n.refreshPrimarySubnet()
+	if err != nil {
+		return err
+	}
 
 	// create subnet object
 	zone := api.TransAvailableZoneToZoneName(operatorOption.Config.BCECloudContry, operatorOption.Config.BCECloudRegion, resource.Spec.ENI.AvailabilityZone)
-	n.manager.FindSubnetByIDs(resource.Spec.ENI.VpcID, zone, []string{bccInfo.NicInfo.SubnetId})
 
 	newENI := &ccev2.ENI{
 		ObjectMeta: metav1.ObjectMeta{

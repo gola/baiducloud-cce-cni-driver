@@ -199,6 +199,10 @@ const (
 
 	// SubnetReversedIPNum is the number of reversed IP in subnet, this flag is useful for psts mode
 	PSTSSubnetReversedIPNum = "psts-subnet-reversed-ip-num"
+
+	// EnableNodeAnnotationSync wait for node annotation sync
+	// this flag is useful for vpc-eni mode, operator will wait for node annotation sync to chose the subnet
+	EnableNodeAnnotationSync = "enable-node-annotation-sync"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -282,6 +286,10 @@ type OperatorConfig struct {
 
 	// IPAMUInstanceTags are optional tags used to filter AWS EC2 instances, and interfaces (ENI) attached to them
 	IPAMInstanceTags map[string]string
+
+	// EnableNodeAnnotationSync wait for node annotation sync
+	// this flag is useful for vpc-eni mode, operator will wait for node annotation sync to chose the right subnet
+	EnableNodeAnnotationSync bool
 
 	// IPAM Operator options
 
@@ -428,8 +436,8 @@ func (c *OperatorConfig) Populate() {
 	} else {
 		c.APIRateLimit = m
 	}
-	// BCECloud options
 
+	// BCECloud options
 	c.BCECloudVPCID = viper.GetString(BCECloudVPCID)
 	c.BCECloudBaseHost = viper.GetString(BCECloudHost)
 	c.BCECloudRegion = viper.GetString(BCECloudRegion)
@@ -446,6 +454,7 @@ func (c *OperatorConfig) Populate() {
 	c.EnableRemoteFixedIPGC = viper.GetBool(EnableRemoteFixedIPGC)
 
 	c.CCEClusterID = viper.GetString(CCEClusterID)
+	c.EnableNodeAnnotationSync = viper.GetBool(EnableNodeAnnotationSync)
 
 	// Option maps and slices
 
